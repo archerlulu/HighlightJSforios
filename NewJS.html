@@ -1,0 +1,463 @@
+
+<html>
+	<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+    <head>
+        <title>DOM Range Example</title>
+        <script type="text/javascript">
+
+var Style,IDName;
+
+function analystRange(stylestr,idname)
+{
+	var selection = window.getSelection();
+	var range = selection.getRangeAt(0);
+	var ancestorNode = range.commonAncestorContainer;
+	
+	//var allNodeInRange = getRangeSelectedNodes(range);
+	
+	//返回span节点
+	var startHighlightNode = upSearchSpanNode(range.startContainer);
+	var endHighlightNode = upSearchSpanNode(range.endContainer);
+	//得到选区中的所有高亮名称木
+	var spanNames =  getAllHighlightSpanName(selection);
+	//startSpanNode?console.log("!!!!头：存在highlight"):console.log("xxx头：没有高亮");
+	//endSpanNode?console.log("!!!!尾：存在highlight"):console.log("xxx尾：没有高亮");
+	
+	//两头没有高亮
+	//新的，或是包含了高亮区
+	if (!startHighlightNode && !endHighlightNode)
+	{
+		 if (spanNames.length <= 0)
+		 {
+		 	  console.log("这是一个新选区！");
+		 }
+		 else
+		 {
+		 	  console.log("选区中间包含highlight 数量：" + spanNames.length);
+		 	  for (var i=0;i < spanNames.length; i++)
+		 	  {
+		 	  	 removeHighlightByName(document.body,spanNames[i]);
+		    }
+		 }
+		 //高亮
+		 highlightWithStyleAndIDName(range,stylestr,idname);
+	}
+	//开始是高亮区，结尾不是高亮区
+	else if (startHighlightNode && !endHighlightNode)
+	{
+		  console.log("开始是高亮区，结尾不是高亮区！");
+		  /*
+		  var xe = document.createRange();
+		  var endnode = range.endContainer;
+		  xe.setStart(startHighlightNode,0);
+  		//xe.setStartBefore((endnode.nodeType == Node.TEXT_NODE)? endnode:eendnode.firstChild);
+      xe.setEnd(endnode,range.endOffset);
+      console.log("尾部文本2：" + xe.toString() + "\n");
+      */
+      
+      
+      var allNodeInRange = getRangeSelectedNodes(range);
+      console.log("all node：" + allNodeInRange.length + "\n");
+      
+      /*
+      for (var i=0;i < allNodeInRange.length; i++)
+		 	{
+		 	  	console.log("有:" + allNodeInRange[i].nodeType + " name:" + allNodeInRange[i].nodeName + "\n");
+		  }*/
+		  
+		  //加入锚点
+		  var div = document.createElement("a");
+		  div.setAttribute("id","divitionStart");
+      startHighlightNode.parentNode.insertBefore(div,startHighlightNode);
+      
+      var divEnd = document.createElement("a");
+		  divEnd.setAttribute("id","divitionEnd");
+      
+      var endnode =range.endContainer;
+      var xe = document.createRange();
+  		xe.setStartBefore((endnode.nodeType == Node.TEXT_NODE)? endnode:eendnode.firstChild);
+      xe.setEnd(endnode,range.endOffset);
+      //console.log("尾部文本2：" + xe.toString() + "\n");
+      xe.surroundContents(divEnd);
+      //xe.detach();
+      
+		 	for (var i=0;i < spanNames.length; i++)
+		 	{
+		 	  removeHighlightByName(document.body,spanNames[i]);
+		  }
+		  
+		  
+		  var startPos=document.getElementById("divitionStart");
+		  var endPos=document.getElementById("divitionEnd");
+
+      var endRange = document.createRange();
+      endRange.setStartAfter(startPos);
+      endRange.setEndAfter(endPos);
+      
+      spanNames =  getAllHighlightSpanName(selection);
+      //高亮
+		  highlightWithStyleAndIDName(endRange,stylestr,idname);
+      
+      
+      //删除起始点
+      var parentElement = startPos.parentNode;
+      parentElement.removeChild(startPos);  
+      
+      
+      var text = endPos.removeChild(endPos.firstChild);
+      endPos.parentNode.insertBefore(text,endPos);
+      endPos.parentNode.removeChild(endPos);
+	}
+	else 
+	{
+		 for (var i=0;i < spanNames.length; i++)
+		 {
+		 	  removeHighlightByName(document.body,spanNames[i]);
+		 }
+		 //高亮
+		 highlightWithStyleAndIDName(range,stylestr,idname);
+	}
+	
+	document.body.normalize();
+}
+
+//递归,以名字删除高亮区
+function removeHighlightByName(element,highlightclassname)
+{
+    //element一般传入document.body
+    if (element)
+    {
+        if (element.nodeType == 1)//1代表元素节点，2代表属性节点，3代表文本节点
+        {
+            if (element.getAttribute("class") && element.getAttribute("class") == highlightclassname)
+            {
+                var text = element.removeChild(element.firstChild);
+                element.parentNode.insertBefore(text,element);
+                element.parentNode.removeChild(element);
+                return true;
+            }
+            else
+            {
+                var normalize = false;
+                for (var i=element.childNodes.length-1; i>=0; i--)
+                {
+                    if (removeHighlightByName(element.childNodes[i],highlightclassname))//递归
+                    {
+                        normalize = true;
+                    }
+                }
+                if (normalize)
+                {
+                    element.normalize();
+                }
+            }
+        }
+    }
+    return false;
+}
+
+
+//得到选区的头和尾
+function getSafeRanges(dangerous)
+{
+    var a = dangerous.commonAncestorContainer;//开始点startContainer和结束点endContainer的（即它们的祖先节点）
+    
+    //Starts -- Work inward from the start, selecting the largest safe range
+    var s = new Array(0), rs = new Array(0);
+    if (dangerous.startContainer != a)
+        for(var i = dangerous.startContainer; i != a; i = i.parentNode)
+        {
+            //console.log("第一次:" + i.nodeType + " name:" + i.nodeName + "\n");
+            s.push(i);
+        }
+    
+    if (s.length > 0)
+        for(var i = 0; i < s.length; i++)
+        {
+            var xs = document.createRange();
+            if (i) //i=1,s[i].nodeType=1
+            {
+                xs.setStartAfter(s[i-1]);
+                xs.setEndAfter(s[i].lastChild);
+                //console.log("在里边:" + s[i].nodeType + " name:" + s[i].nodeName + "\n");
+                if (s[i].nodeName == "SPAN")
+                {
+                    spanArray.push(s[i]);
+                }
+            }
+            else
+            {
+                xs.setStart(s[i], dangerous.startOffset);
+                xs.setEndAfter((s[i].nodeType == Node.TEXT_NODE)? s[i] : s[i].lastChild);
+                //console.log("在外边:" + s[i].nodeType + " name:" + s[i].nodeName + "\n");
+                rs.push(xs);
+                if (s[i].nodeName == "SPAN")
+                {
+                    spanArray.push(s[i]);
+                }
+            }
+            
+        }
+    // Ends -- basically the same code reversed
+    var e = new Array(0), re = new Array(0);
+    if (dangerous.endContainer != a)
+        for(var i = dangerous.endContainer; i != a; i = i.parentNode)
+            e.push(i);
+    
+    if (0 < e.length)
+        for(var i = 0; i < e.length; i++)
+        {
+            var xe = document.createRange();
+            if (i)
+            {
+                xe.setStartBefore(e[i].firstChild);
+                xe.setEndBefore(e[i-1]);
+                if (e[i].nodeName == "SPAN")
+                {
+                    spanArray.push(e[i]);
+                }
+            }
+            else
+            {
+                xe.setStartBefore((e[i].nodeType == Node.TEXT_NODE)? e[i]:e[i].firstChild);
+                xe.setEnd(e[i],dangerous.endOffset);
+                //highlightRange(xe);
+                re.unshift(xe);
+            }
+            
+        }
+    // Middle -- the uncaptured middle
+    if ((0 < s.length) && (0 < e.length))
+    {
+        //console.log("middle");
+        var xm = document.createRange();
+        xm.setStartAfter(s[s.length - 1]);
+        xm.setEndBefore(e[e.length - 1]);
+    }
+    else
+    {
+        //单独一行时
+        //highlightRange(dangerous);
+        return [dangerous];
+    }
+    
+    // Concat
+    //rs.push(xm);
+    response = rs.concat(re);
+    
+    // Send to Console
+    return response;
+}
+
+
+//得到node的下一个node
+function nextNode(node)
+{
+    if (node.hasChildNodes()) //得到第一个子node
+    {
+        return node.firstChild;
+    }
+    else //否则，得到下一个兄弟node
+    {
+        //node存在，并且node没有子节点
+        while (node && !node.nextSibling)
+        {
+            node = node.parentNode;
+        }
+        if (!node)
+        {
+            return null;
+        }
+        return node.nextSibling;
+    }
+}
+//得到选区的所有node
+function getRangeSelectedNodes(range)
+{
+    var node = range.startContainer;
+    var endNode = range.endContainer;
+    
+    // Special case for a range that is contained within a single node
+    if (node == endNode) 
+    {
+        return [node];
+    }
+    
+    // Iterate nodes until we hit the end container
+    var rangeNodes = [];
+    while (node && node != endNode) 
+    {
+        rangeNodes.push( node = nextNode(node) );
+    }
+    
+    // Add partially selected nodes at the start of the range
+    node = range.startContainer;
+    while (node && node != range.commonAncestorContainer) 
+    {
+        rangeNodes.unshift(node);//在开头插入一个数据
+        node = node.parentNode;
+    }
+    
+    return rangeNodes;
+}
+
+//高亮新选区
+function highlightWithStyleAndIDName(range,stylestr,idname)
+{
+    Style = stylestr;
+    IDName = idname;
+
+    var userSelection = range;
+ 
+    //得到：选区的头和尾
+    var ranges = getSafeRanges(userSelection);
+    //console.log("spanArray init:" + spanArray.length);
+    //高亮选区的头和尾
+    for (var i=0; i<= ranges.length-1; i++)
+    {
+        highlightRange(ranges[i]);
+    }
+    
+    //处理中间的段落
+    var nodes = getRangeSelectedNodes(userSelection);
+    console.log("nodes:" + nodes.length);
+    //得到存放P标签的node
+    var elementNodes = [];
+    for (var i=0; i<= nodes.length-1; i++)
+    {
+        //console.log("i:"+ i +"  node:" +nodes[i].nodeName +"  type:" +nodes[i].nodeType);
+        if (nodes[i].nodeName == "P")
+        {
+            elementNodes.push(nodes[i]);
+        }
+    }
+    //console.log("abc:" + elementNodes.length);
+    //加亮中间的段落
+    if (elementNodes.length >= 3)
+    {
+    	  //console.log("abc");
+        //去掉头尾
+        elementNodes.shift();//去头
+        elementNodes.pop();//去尾
+        
+        //加亮中间的段落
+        for (var i=0; i<= elementNodes.length-1; i++)
+        {
+          //highlightP(elementNodes[i]);
+          var rangeObj = document.createRange();
+          //将node转为range
+          rangeObj.selectNodeContents(elementNodes[i]);
+          highlightRange(rangeObj);
+        }
+    }
+    //移除选中
+    //window.getSelection ? window.getSelection().removeAllRanges() : document.selection.empty();
+}
+
+//得到选区的全部childnode，然后返回不重复的classname
+function getAllHighlightSpanName(selection)
+{
+    var range = selection.getRangeAt(0);
+    //console.log("nodeName:"+range.commonAncestorContainer.nodeName);
+    
+    //如果选区为text中的一段,至少得到这个选区的上限P
+    var node = range.commonAncestorContainer;
+    if (node.nodeType !=1)
+        for(var i = node; i.nodeName != "P"; i = i.parentNode)
+        {
+            //console.log("测试:" + i.nodeType + " name:" + i.nodeName + "\n");
+            node = i.parentNode;
+        }
+    var allWithinRangeParent = node.parentNode.getElementsByTagName("*");
+    //console.log(node.nodeType + " name:" + node.nodeName + "\n");
+    
+    var allSelected = [];
+    var allSpans = [];
+    var spanClassNames = [];
+    for (var i=0, el; el = allWithinRangeParent[i]; i++)
+    {
+        // The second parameter says to include the element
+        // even if it's not fully selected
+        if (selection.containsNode(el, true) )
+        {
+            if (el.getAttribute("class") && el.getAttribute("class").substring(0,9)  == "highlight")
+            {
+                //allSpans.push(el);
+                var classname = el.getAttribute("class");
+                if(spanClassNames.indexOf(classname)==-1)
+                {
+                    spanClassNames.push(classname);
+                }
+            }
+            allSelected.push(el);
+        }
+    }
+    //console.log('All selected =', allSelected);
+    //console.log('All names =', spanClassNames);
+    
+    return spanClassNames;
+}
+
+//向上找
+function upSearchSpanNode(usernode)
+{
+	var node = usernode;
+	var newnode;
+	if (node.nodeType !=1)
+        for(var i = node; i.nodeName != "BODY"; i = i.parentNode)
+        {
+          newnode = i;
+          //console.log("是否有light:" + newnode.nodeType + " name:" + newnode.nodeName + "\n");
+          if (newnode.nodeName == "SPAN")
+          {
+            if (newnode.getAttribute("class"))
+            {
+          	  //含有hightlihgt
+          	  if (newnode.getAttribute("class").indexOf("highlight")!=-1)
+          	  {
+          		  //console.log("!!!!存在span的highlight");
+        	      return newnode;
+          	  }
+            }
+          }
+        }
+       
+   //console.log("是否有light:" + newnode.nodeType + " name:" + newnode.nodeName + "\n");
+        
+   return null;
+}
+
+//高亮选区
+function highlightRange(range)
+{
+    var newNode = document.createElement("span");
+    newNode.setAttribute(
+                         "class",
+                         IDName
+                         );
+    newNode.setAttribute(
+                         "style",
+                         //"background-color: "+backgrounColor+";"
+                         Style
+                         );
+    range.surroundContents(newNode);
+}
+
+//---------------新功能分界线-----------------
+
+
+        </script>
+    </head>
+    <body>
+<p id="p1"><b>Hello</b> World</p>
+<p class="text">说有一个人推动一个节日，上一次是屈原。</p>
+<p >为什么总有人在骂马云？因为面对全球化，面对互联网，总有人的利益严重受损。</p>
+<p ><strong>美全球化中谁受益了？</strong></p>
+<p class="text">马云说，“15年前的时候，美国人的平均收入就是2500美元了，而我那个时候的平均月收入只有10美元。”全球化让中国的中产受益了，至少过去的十年如此。</p>   
+<input type="button" value="highlight" onclick="highlightWithStyleAndIDName('background-color: rgb(255,255,153);','highlight123')" />
+<input type="button" value="highlight2" onclick="highlightWithStyleAndIDName('background-color: red;','highlight456')" />
+<input type="button" value="now work" onclick="testRange()" />
+<input type="button" value="remove" onclick="removeAll()" />
+<input type="button" value="分析" onclick="analystRange('background-color: rgb(210,249,139);','highlight123')" />
+    </body>
+</html>
